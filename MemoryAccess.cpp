@@ -92,8 +92,10 @@ void MemoryAccess::createAlbum(const Album& album)
 
 void MemoryAccess::deleteAlbum(const std::string& albumName, int userId)
 {
-	for (auto iter = m_albums.begin(); iter != m_albums.end(); iter++) {
-		if ( iter->getName() == albumName && iter->getOwnerId() == userId ) {
+	for (auto iter = m_albums.begin(); iter != m_albums.end(); iter++) 
+	{
+		if ( iter->getName() == albumName && iter->getOwnerId() == userId )
+		{
 			iter = m_albums.erase(iter);
 			return;
 		}
@@ -183,6 +185,26 @@ void MemoryAccess::deleteUser(const User& user)
 {
 	if (doesUserExists(user.getId())) {
 	
+
+		for (auto itr = m_albums.begin(); itr != m_albums.end();) 
+		{
+
+			if ((*itr).getOwnerId() == user.getId())
+			{
+				itr = m_albums.erase(itr);
+			}
+			else
+			{
+
+				//remove user tages
+				auto& pictures = itr->getPictures(); 
+				for (auto pic = pictures.begin(); pic != pictures.end(); ++pic)
+				{
+					pic->untagUser(user.getId());
+				}
+				++itr;
+			}
+		}
 		for (auto iter = m_users.begin(); iter != m_users.end(); ++iter) {
 			if (*iter == user) {
 				iter = m_users.erase(iter);

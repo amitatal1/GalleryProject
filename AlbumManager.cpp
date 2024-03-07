@@ -301,11 +301,15 @@ void AlbumManager::removeUser()
 	// get user name
 	std::string userIdStr = getInputFromConsole("Enter user id: ");
 	int userId = std::stoi(userIdStr);
-	if ( !m_dataAccess.doesUserExists(userId) ) {
+
+	if ( !m_dataAccess.doesUserExists(userId) ) //if doesnt couldnt find user
+	{
 		throw MyException("Error: There is no user with id @" + userIdStr + "\n");
 	}
-	const User& user = m_dataAccess.getUser(userId);
-	if (isCurrentAlbumSet() && userId == m_openAlbum.getOwnerId()) {
+	const User& user = m_dataAccess.getUser(userId); // get user object
+
+	if (isCurrentAlbumSet() && userId == m_openAlbum.getOwnerId())
+	{
 		closeAlbum();
 	}
 
@@ -400,7 +404,8 @@ bool AlbumManager::fileExistsOnDisk(const std::string& filename)
 }
 
 void AlbumManager::refreshOpenAlbum() {
-	if (!isCurrentAlbumSet()) {
+	if (!isCurrentAlbumSet()) 
+	{
 		throw AlbumNotOpenException();
 	}
     m_openAlbum = m_dataAccess.openAlbum(m_currentAlbumName);
