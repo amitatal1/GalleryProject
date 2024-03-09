@@ -301,11 +301,15 @@ void AlbumManager::removeUser()
 	// get user name
 	std::string userIdStr = getInputFromConsole("Enter user id: ");
 	int userId = std::stoi(userIdStr);
-	if ( !m_dataAccess.doesUserExists(userId) ) {
+
+	if ( !m_dataAccess.doesUserExists(userId) ) //if doesnt couldnt find user
+	{
 		throw MyException("Error: There is no user with id @" + userIdStr + "\n");
 	}
-	const User& user = m_dataAccess.getUser(userId);
-	if (isCurrentAlbumSet() && userId == m_openAlbum.getOwnerId()) {
+	const User& user = m_dataAccess.getUser(userId); // get user object
+
+	if (isCurrentAlbumSet() && userId == m_openAlbum.getOwnerId())
+	{
 		closeAlbum();
 	}
 
@@ -331,7 +335,8 @@ void AlbumManager::userStatistics()
 	std::cout << "user @" << userId << " Statistics:" << std::endl << "--------------------" << std::endl <<
 		"  + Count of Albums Tagged: " << m_dataAccess.countAlbumsTaggedOfUser(user) << std::endl <<
 		"  + Count of Tags: " << m_dataAccess.countTagsOfUser(user) << std::endl <<
-		"  + Avarage Tags per Alboum: " << m_dataAccess.averageTagsPerAlbumOfUser(user) << std::endl;
+		"  + Avarage Tags per Alboum: " << m_dataAccess.averageTagsPerAlbumOfUser(user) << std::endl <<
+		"  + Number Of Albums Owned By Users: " << m_dataAccess.countAlbumsOwnedOfUser(user);
 }
 
 
@@ -400,7 +405,8 @@ bool AlbumManager::fileExistsOnDisk(const std::string& filename)
 }
 
 void AlbumManager::refreshOpenAlbum() {
-	if (!isCurrentAlbumSet()) {
+	if (!isCurrentAlbumSet()) 
+	{
 		throw AlbumNotOpenException();
 	}
     m_openAlbum = m_dataAccess.openAlbum(m_currentAlbumName);
