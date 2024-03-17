@@ -27,7 +27,7 @@ public:
 	virtual void untagUserInPicture(const std::string& albumName, const std::string& pictureName, int userId) override;
 
 	// user related
-	virtual void printUsers() =0;
+	virtual void printUsers() override;
 	virtual User getUser(int userId) override;
 	virtual void createUser(User& user ) override;
 	virtual void deleteUser(const User& user) override;
@@ -44,10 +44,12 @@ public:
 	virtual User getTopTaggedUser() override;
 	virtual Picture getTopTaggedPicture() override;
 	virtual std::list<Picture> getTaggedPicturesOfUser(const User& user) override;
+
 	
 
 private:
-
+	static 	int callbackGetUsersList(void* data, int argc, char** argv, char** azColName);
+	static int callbackGetUser(void* data, int argc, char** argv, char** azColName);
 
 	void createTables();
 	sqlite3* db;

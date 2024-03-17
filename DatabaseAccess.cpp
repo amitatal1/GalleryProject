@@ -117,10 +117,42 @@ void DatabaseAccess::untagUserInPicture(const std::string& albumName, const std:
 
 void DatabaseAccess::printUsers()
 {
+    std::list<User> users;
+
+    std::string stringSql =
+        "select * from Users ;";
+
+    const char* sqlStatement = stringSql.c_str();
+    int res = sqlite3_exec(db, sqlStatement, callbackGetUser, &users, nullptr);
+    if (res != SQLITE_OK)
+    {
+        std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
+    }
+
+    auto iter = users.begin();
+    std::cout << "User List:\n\n";
+        
+
+    while (iter != users.end())
+    {
+        std::cout << iter->getName() << " , "
+            << iter->getId() << "\n";
+        ++iter;
+    }
 }
 
 User DatabaseAccess::getUser(int userId)
 {
+    User user();
+    std::string stringSql =
+        "select from Users where id=" + std::to_string(userId) + ";";
+           
+    const char* sqlStatement = stringSql.c_str();
+    int res = sqlite3_exec(db, sqlStatement, callbackGetUser, &user, nullptr);
+    if (res != SQLITE_OK) 
+    {
+        std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
+    }
 }
 
 void DatabaseAccess::createUser(User& user)
@@ -142,7 +174,7 @@ void DatabaseAccess::deleteUser(const User& user)
     std::string stringSql =
         "DELETE FROM USERS where id=" + std::to_string(user.getId()) + ";";
 
-
+        
     const char* sqlStatement = stringSql.c_str();
     int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
     if (res != SQLITE_OK) {
@@ -188,7 +220,44 @@ std::list<Picture> DatabaseAccess::getTaggedPicturesOfUser(const User& user)
     return std::list<Picture>();
 }
 
-void DatabaseAccess::createTables()
+int DatabaseAccess::callbackGetUsersList(void* data, int argc, char** argv, char** azColName)
+{
+    std::list<User> * users = static_cast<std::list<User>*>(data);
+
+    User user(0,"");
+    for (int i = 0; i < argc; i++)
+    {
+        if (std::string(azColName[i]) == "ID")
+        {
+            user.setId(atoi(argv[i]));
+        }
+        else if (std::string(azColName[i]) == "NAME") {
+            user.setName(argv[i]);
+        }
+    }
+    users->push_back(user);
+    return 0;
+
+}
+
+int DatabaseAccess::callbackGetUser(void* data, int argc, char** argv, char** azColName)
+{
+    User* user = (User*)data;
+
+    for (int i = 0; i < argc; i++)
+    {
+        if (std::string(azColName[i]) == "ID")
+        {
+            user->setId(atoi(argv[i]));
+        }
+        else if (std::string(azColName[i]) == "NAME") {
+            user->setName(argv[i]);
+        }
+    }
+    return 0;
+
+}
+    void DatabaseAccess::createTables()
 {
     const char* sqlStatement = // creating users table
         "CREATE TABLE if not exists Users \
