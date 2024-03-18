@@ -48,8 +48,12 @@ public:
 	
 
 private:
+
+	//callback functions:
 	static 	int callbackGetUsersList(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetUser(void* data, int argc, char** argv, char** azColName);
+	static int callbackGetPicture(void* data, int argc, char** argv, char** azColName) ;
+	static int callbackGetTagsList(void* data, int argc, char** argv, char** azColName);
 
 	void createTables();
 	sqlite3* db;
