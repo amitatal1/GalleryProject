@@ -11,6 +11,7 @@ public:
 	virtual void close() override ;
 	virtual void clear() override {};
 
+	// album related
 	virtual const std::list<Album> getAlbums() override;
 	virtual const std::list<Album> getAlbumsOfUser(const User& user) override;
 	virtual void createAlbum(const Album& album) override;
@@ -19,6 +20,7 @@ public:
 	virtual Album openAlbum(const std::string& albumName) override;
 	virtual void closeAlbum(Album& pAlbum) override;
 	virtual void printAlbums() override;
+
 
     // picture related
 	virtual void addPictureToAlbumByName(const std::string& albumName, const Picture& picture) override;
@@ -44,6 +46,8 @@ public:
 	virtual User getTopTaggedUser() override;
 	virtual Picture getTopTaggedPicture() override;
 	virtual std::list<Picture> getTaggedPicturesOfUser(const User& user) override;
+	
+
 
 	
 
@@ -52,9 +56,12 @@ private:
 	//callback functions:
 	static 	int callbackGetUsersList(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetUser(void* data, int argc, char** argv, char** azColName);
-	static int callbackGetPicture(void* data, int argc, char** argv, char** azColName) ;
 	static int callbackGetTagsList(void* data, int argc, char** argv, char** azColName);
+	static int callbackGetAlbums(void* data, int argc, char** argv, char** azColName);
+	static int callbackGetPicturesList(void* data, int argc, char** argv, char** azColName);
+
+
 
 	void createTables();
-	sqlite3* db;
+	static sqlite3* db;
 };

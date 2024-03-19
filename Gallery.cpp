@@ -6,6 +6,9 @@
 #include "DatabaseAccess.h"
 
 
+/*
+you need to fix the starter id problem 
+*/
 int getCommandNumberFromUser()
 {
 	std::string message("\nPlease enter any command(use number): ");
@@ -33,7 +36,7 @@ int getCommandNumberFromUser()
 int main(void)
 {
 	// initialization data access
-	 DatabaseAccess dataAccess;
+	DatabaseAccess dataAccess;
 
 	// initialize album manager
 	AlbumManager albumManager(dataAccess);
