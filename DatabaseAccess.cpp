@@ -35,12 +35,7 @@ const std::list<Album> DatabaseAccess::getAlbums()
 	std::string stringSql =
 		"SELECT * FROM Albums;";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetAlbums, &albums, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
-
+	exec_cmd(stringSql, &albums, callbackGetAlbums);
 	return albums;
 }
 
@@ -73,22 +68,16 @@ int DatabaseAccess::callbackGetAlbums(void* data, int argc, char** argv, char** 
 	}
 
 
-	// Fetch pictures for this album
+	// Fetch es for this album
 	std::string stringSqlPictures = "SELECT * FROM Pictures WHERE ALBUM_ID = " + std::to_string(albumId) + ";";
 	std::list<Picture> pics;
 
-	const char* sqlStatementPictures = stringSqlPictures.c_str();
-	int res = sqlite3_exec(db, sqlStatementPictures, callbackGetPicturesList, &pics, nullptr);
-
+	exec_cmd(stringSqlPictures, &pics, callbackGetPicturesList);
 	for (auto& pic : pics)
 	{
 		album.addPicture(pic);
 	}
 	
-	if (res!= SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
 
 	albums->push_back(album);
 
@@ -103,12 +92,7 @@ const std::list<Album> DatabaseAccess::getAlbumsOfUser(const User& user)
 	std::string stringSql =
 		"SELECT * FROM Albums where USER_ID= "+std::to_string(user.getId())+"; ";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetAlbums, &albums, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
-
+	exec_cmd(stringSql, &albums, callbackGetAlbums);
 	return albums;
 }
 
@@ -118,15 +102,11 @@ void DatabaseAccess::createAlbum(const Album& album)
 	std::string stringSql =
 		"INSERT INTO Albums (NAME, CREATION_DATE, USER_ID) VALUES (" +
 		album.getName() + ", " +
-		 album.getCreationDate() +","+
+		album.getCreationDate() + "," +
 		std::to_string(album.getOwnerId()) + ");";
 
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
 }
 
 
@@ -134,7 +114,7 @@ void DatabaseAccess::createAlbum(const Album& album)
 void DatabaseAccess::deleteAlbum(const std::string& albumName, int userId)
 {
 	std::string stringSql =
-		"DELETE FROM Albums WHERE name = " + albumName + " and User_id =" + std::to_string(userId) + ";";
+		"DELETE FROM Albums WHERE name = '" + albumName + "' and User_id =" + std::to_string(userId) + ";";
 
 	const char* sqlStatement = stringSql.c_str();
 	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
@@ -145,31 +125,86 @@ void DatabaseAccess::deleteAlbum(const std::string& albumName, int userId)
 
 bool DatabaseAccess::doesAlbumExists(const std::string& albumName, int userId)
 {
-	return false;
+	std::string stringSql = "SELECT 1 FROM ALBUMS WHERE NAME = '" + albumName + "' and USER_ID = "+std::to_string(userId) + " + LIMIT 1;";
+	bool albumExists = false;
+
+	exec_cmd(stringSql,&albumExists, 
+		
+		[](void* exists, int argc, char** argv, char** azColName)
+		//lambda function
+		{
+			bool* albumExists = static_cast<bool*>(exists);
+			if (argc > 0 && argv[0]) {
+				*albumExists = true;
+			}
+			return SQLITE_OK;
+		});
+
+	
+	return albumExists;
 }
 
 Album DatabaseAccess::openAlbum(const std::string& albumName)
 {
-	return Album();
+	std::list<Album> albums;
+	std::string query = "SELECT * FROM ALBUMS WHERE ALBUM_NAME ='" + albumName + "';";
+	
+	exec_cmd
+	(query,
+		&albums,
+		callbackGetAlbums
+	);
+
+	return *albums.begin();
 }
 
 void DatabaseAccess::closeAlbum(Album& pAlbum)
 {
+	
 }
 
 void DatabaseAccess::printAlbums()
 {
 
+	std::list<Album> albums;
+	std::string stringSql = " SELECT * FROM ALBUMS";
+
+	const char* sqlStatement = stringSql.c_str();
+	int res = sqlite3_exec(db, sqlStatement, callbackGetAlbums, &albums, nullptr);
+	if (res != SQLITE_OK) {
+		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
+	}
+	else
+	{
+		if (albums.empty()) 
+		{
+			throw std::runtime_error("There are no existing albums.");
+		}
+		std::cout << "Album list:" << std::endl;
+		std::cout << "-----------" << std::endl;
+		for (const Album& album : albums)
+		{
+			std::cout << std::setw(5) << "* " << album;
+		}
+	}
 }
 
 void DatabaseAccess::addPictureToAlbumByName(const std::string& albumName, const Picture& picture)
 {
+
 }
 
 void DatabaseAccess::removePictureFromAlbumByName(const std::string& albumName, const std::string& pictureName)
 {
+	std::string stringSql =
+		"DELETE FROM Pictures\
+		INNER JOIN ALBUMS ON Pictures.ALBUM_ID = ALBUMS.ID\
+		WHERE albums.name = '" + albumName + "' and pictures.name ='" + pictureName + "';";
+
+	exec_cmd(stringSql, nullptr, nullptr);
 
 }
+
 
 void DatabaseAccess::tagUserInPicture(const std::string& albumName, const std::string& pictureName, int userId)
 {
@@ -179,11 +214,8 @@ void DatabaseAccess::tagUserInPicture(const std::string& albumName, const std::s
 		"INNER JOIN Albums ON Pictures.ALBUM_ID = Albums.ID "
 		"WHERE Albums.NAME = " + albumName + "  AND Pictures.NAME = " + pictureName + "; ";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
+
 
 }
 
@@ -196,11 +228,8 @@ void DatabaseAccess::untagUserInPicture(const std::string& albumName, const std:
 		"WHERE Albums.NAME = '" + albumName + "' AND Pictures.NAME = '" + pictureName + "');";
 
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
+
 }
 
 void DatabaseAccess::printUsers()
@@ -210,12 +239,15 @@ void DatabaseAccess::printUsers()
 	std::string stringSql =
 		"select * from Users ;";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetUsersList, &users, nullptr);
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+
+	exec_cmd
+	(
+		stringSql,
+		&users,
+		callbackGetUsersList
+
+	);
+
 
 	auto iter = users.begin();
 	std::cout << "User List:\n\n";
@@ -223,8 +255,7 @@ void DatabaseAccess::printUsers()
 
 	while (iter != users.end())
 	{
-		std::cout << iter->getName() << " , "
-			<< iter->getId() << "\n";
+		std::cout << iter->getName() << " , "<< iter->getId() << "\n";
 		++iter;
 	}
 }
@@ -235,13 +266,12 @@ User DatabaseAccess::getUser(int userId)
 	std::string stringSql =
 		"select * from Users where id=" + std::to_string(userId) + ";";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetUser, &user, nullptr);
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
-	
+	exec_cmd
+	(
+		stringSql,
+		&user,
+		callbackGetUser
+	);
 	
 	return user;
 }
@@ -252,12 +282,7 @@ void DatabaseAccess::createUser(User& user)
 		"INSERT INTO USERS (id,name) values('"+std::to_string(user.getId()) + "," + user.getName() + "')"; // maybe you shoukd enter the id to the user and not the oppostie, bo awarew to that (past Amit)
 
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
 }
 
 void DatabaseAccess::deleteUser(const User& user)
@@ -265,12 +290,7 @@ void DatabaseAccess::deleteUser(const User& user)
 	std::string stringSql =
 		"DELETE FROM Users WHERE ID = " + std::to_string(user.getId()) + ";";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-		std::cout << "gg";
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
 }
 
 
@@ -278,20 +298,20 @@ bool DatabaseAccess::doesUserExists(int userId)
 {
 	std::string stringSql = "SELECT 1 FROM Users WHERE ID = " + std::to_string(userId) + " LIMIT 1;";
 	bool userExists = false;
-
-	int res = sqlite3_exec(db, stringSql.c_str(), [](void* exists, int argc, char** argv, char** azColName) 
+	exec_cmd
+	(
+		stringSql,
+		&userExists,
+		[](void* exists, int argc, char** argv, char** azColName)
 		//lambda function
 		{
-		bool* userExistsPtr = static_cast<bool*>(exists);
-		if (argc > 0 && argv[0]) {
-			*userExistsPtr = true;
+			bool* userExistsPtr = static_cast<bool*>(exists);
+			if (argc > 0 && argv[0]) {
+				*userExistsPtr = true;
+			}
+			return SQLITE_OK;
 		}
-		return SQLITE_OK;
-		}, &userExists, nullptr);
-
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	);
 
 	return userExists;
 }
@@ -325,37 +345,148 @@ int DatabaseAccess::countAlbumsOwnedOfUser(const User& user)
 
 int DatabaseAccess::countAlbumsTaggedOfUser(const User& user)
 {
-	return 0;
+	int count = 0;
+
+	std::string stringSql =
+		"SELECT COUNT(DISTINCT Albums.ID) AS COUNT FROM Albums "
+		"INNER JOIN Pictures ON Albums.ID = Pictures.ALBUM_ID "
+		"INNER JOIN Tags ON Pictures.ID = Tags.PICTURE_ID "
+		"WHERE Tags.USER_ID = " + std::to_string(user.getId()) + ";";
+
+
+	exec_cmd(
+		stringSql,
+		&count,
+		[](void* data, int argc, char** argv, char** azColName)
+		{
+			int* count = static_cast<int*>(data);
+			for (int i = 0; i < argc; i++)
+			{
+				if (azColName[i] == "COUNT")
+				{
+					*count = atoi(argv[i]);
+				}
+			}
+			return 0;
+		}
+	);
+
+	return count;
 }
 
 int DatabaseAccess::countTagsOfUser(const User& user)
 {
-	return 0;
+	int count = 0;
+	std::string stringSql =
+		"SELECT COUNT(*) AS TAGS_COUNT  FROM TAGS WHERE USER_ID = " + std::to_string(user.getId()) + ";";
+
+
+	exec_cmd(
+		stringSql,
+		&count,
+		[](void* data, int argc, char** argv, char** azColName)
+		{
+			int* count = static_cast<int*>(data);
+			for (int i = 0; i < argc; i++)
+			{
+				if (azColName[i] == "TAGS_COUNT")
+				{
+					*count = atoi(argv[i]);
+				}
+			}
+			return 0;
+		}
+			);
+	
+	return count;
 }
 
 float DatabaseAccess::averageTagsPerAlbumOfUser(const User& user)
 {
-	return 0.0f;
+	int totalTags = 0;
+	int totalAlbums = 0;
+
+	std::string stringSql =
+		"SELECT  COUNT(*) AS Tag_Count\
+		FROM Users\
+		JOIN ALBUMS on Users.ID = Albums.USER_ID\
+		JOIN Pictures ON ALBUMS.ID = Pictures.ALBUM_ID\
+		JOIN Tags ON Pictures.ID = Tags.PICTURE_ID\
+		WHERE USERS.ID = "+ std::to_string(user.getId())+" \
+		GROUP BY Users.ID;";
+	
+
+	exec_cmd(
+		stringSql,
+
+		&totalTags,
+		[](void* data, int argc, char** argv, char** azColName)
+		{
+			int* total = static_cast<int*>(data);
+
+			for (int i = 0; i < argc; i++)
+			{
+				if (azColName[i] == "Tag_Count")
+				{
+					*total = atoi(argv[i]);
+				}
+
+			}
+			return 0;
+		}
+
+	);
+
+	std::string stringSql =
+		"SELECT  COUNT(*) AS ALBUMS_COUNT FROM ALBUMS;";
+
+	exec_cmd(
+		stringSql,
+
+		&totalAlbums,
+		[](void* data, int argc, char** argv, char** azColName)
+		{
+			int* total = static_cast<int*>(data);
+
+			for (int i = 0; i < argc; i++)
+			{
+				if (azColName[i] == "ALBUMS_COUNT")
+				{
+					*total = atoi(argv[i]);
+				}
+
+			}
+			return 0;
+		}
+
+	);
+	try
+	{
+		return (float) totalTags / totalAlbums;
+
+	}
+	catch (const std::exception&)
+	{
+		return 0;
+	}
 }
+
 
 User DatabaseAccess::getTopTaggedUser()
 {
 	User user(0, "");
 	std::string stringSql =
 		" SELECT Users.ID, Users.NAME, COUNT(*) AS Tag_Count\
-        FROM Users\
-        JOIN Pictures ON Users.ID = Pictures.USER_ID\
-        JOIN Tags ON Pictures.ID = Tags.PICTURE_ID\
-        GROUP BY Users.ID\
+		FROM Users\
+		JOIN ALBUMS on Users.ID = Albums.USER_ID\
+		JOIN Pictures ON ALBUMS.ID = Pictures.ALBUM_ID\
+		JOIN Tags ON Pictures.ID = Tags.PICTURE_ID\
+		GROUP BY Users.ID\
         ORDER BY Tag_Count DESC\
         LIMIT 1;";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetUser, &user, nullptr);
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, &user, callbackGetUser);
+
 	return user;
 }
 
@@ -376,12 +507,7 @@ Picture DatabaseAccess::getTopTaggedPicture()
 
 
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, callbackGetPicturesList, &pics, nullptr);
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, &pics, callbackGetPicturesList);
 
 
 	return *(pics.begin());
@@ -422,13 +548,9 @@ int DatabaseAccess::callbackGetPicturesList(void* data, int argc, char** argv, c
 	std::string stringSql = " SELECT * FROM TAGS WHERE PICTURE_ID=" + std::to_string(pic.getId()) + ";";
 
 
-	const char* sqlStatement2 = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement2, callbackGetTagsList, &pic, nullptr);
 
-	if (res != SQLITE_OK)
-	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, &pic, callbackGetTagsList);
+
 
 	pics->push_back(pic);
 
@@ -498,7 +620,7 @@ int DatabaseAccess::callbackGetUser(void* data, int argc, char** argv, char** az
 
 void DatabaseAccess::createTables()
 {
-	const char* sqlStatement =
+	std::string sqlStatement =
 		"CREATE TABLE IF NOT EXISTS Users ( \
             ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \
             NAME TEXT NOT NULL \
@@ -525,15 +647,28 @@ void DatabaseAccess::createTables()
             ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \
             USER_ID INTEGER NOT NULL, \
             PICTURE_ID INTEGER NOT NULL, \
-            FOREIGN KEY (PICTURE_ID) REFERENCES Pictures(ID) ON DELETE CASCADE \
+            FOREIGN KEY (PICTURE_ID) REFERENCES Pictures(ID) ON DELETE CASCADE, \
+            FOREIGN KEY (USER_ID) REFERENCES USERS(ID) ON DELETE CASCADE \
         );";
 
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
+	exec_cmd(sqlStatement, nullptr, nullptr);
+}
+
+int DatabaseAccess::exec_cmd(std::string cmd, void* data, int(*callback)(void*, int, char**, char**))
+{
+	const char* sqlStatement = cmd.c_str();
+	int res = sqlite3_exec(db, sqlStatement, callback, data, nullptr);
 
 	if (res != SQLITE_OK)
 	{
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
+		std::string errorMessage = "Error executing statement: ";
+		errorMessage += sqlite3_errmsg(db);
+		throw std::runtime_error(errorMessage);
 	}
+	else
+	{
+		return 0;
+	}
+	
 }
-
 

@@ -60,6 +60,7 @@ private:
 	static int callbackGetAlbums(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetPicturesList(void* data, int argc, char** argv, char** azColName);
 
+	static int exec_cmd(std::string cmd,void* data, int (*callback)(void*, int, char**, char**));
 
 
 	void createTables();
