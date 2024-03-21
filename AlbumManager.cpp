@@ -11,12 +11,7 @@ AlbumManager::AlbumManager(IDataAccess& dataAccess) :
 
 	// Left empty
 	m_dataAccess.open();
-	bool idTaken = true;
-	while (idTaken)
-	{
-		m_nextUserId++;
-		idTaken = m_dataAccess.doesUserExists(m_nextUserId);
-	}
+
 }
 
 void AlbumManager::executeCommand(CommandType command) {

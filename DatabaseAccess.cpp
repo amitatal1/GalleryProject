@@ -100,9 +100,9 @@ void DatabaseAccess::createAlbum(const Album& album)
 {
 
 	std::string stringSql =
-		"INSERT INTO Albums (NAME, CREATION_DATE, USER_ID) VALUES (" +
-		album.getName() + ", " +
-		album.getCreationDate() + "," +
+		"INSERT INTO Albums (NAME, CREATION_DATE, USER_ID) VALUES ('" +
+		album.getName() + "', '" +
+		album.getCreationDate() + "'," +
 		std::to_string(album.getOwnerId()) + ");";
 
 
@@ -116,16 +116,14 @@ void DatabaseAccess::deleteAlbum(const std::string& albumName, int userId)
 	std::string stringSql =
 		"DELETE FROM Albums WHERE name = '" + albumName + "' and User_id =" + std::to_string(userId) + ";";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, nullptr, nullptr, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+	exec_cmd(stringSql, nullptr, nullptr);
+
+
 }
 
 bool DatabaseAccess::doesAlbumExists(const std::string& albumName, int userId)
 {
-	std::string stringSql = "SELECT 1 FROM ALBUMS WHERE NAME = '" + albumName + "' and USER_ID = "+std::to_string(userId) + " + LIMIT 1;";
+	std::string stringSql = "SELECT 1 FROM ALBUMS WHERE NAME = '" + albumName + "' and USER_ID = "+std::to_string(userId) + "  LIMIT 1;";
 	bool albumExists = false;
 
 	exec_cmd(stringSql,&albumExists, 
@@ -147,7 +145,7 @@ bool DatabaseAccess::doesAlbumExists(const std::string& albumName, int userId)
 Album DatabaseAccess::openAlbum(const std::string& albumName)
 {
 	std::list<Album> albums;
-	std::string query = "SELECT * FROM ALBUMS WHERE ALBUM_NAME ='" + albumName + "';";
+	std::string query = "SELECT * FROM ALBUMS WHERE NAME ='" + albumName + "';";
 	
 	exec_cmd
 	(query,
@@ -191,15 +189,21 @@ void DatabaseAccess::printAlbums()
 
 void DatabaseAccess::addPictureToAlbumByName(const std::string& albumName, const Picture& picture)
 {
+	std::string query = "INSERT INTO Pictures (NAME, LOCATION, CREATION_DATE, ALBUM_ID) \
+                         SELECT '" + picture.getName() + "', '" + picture.getPath() + "', '" + picture.getCreationDate() + "', Albums.ID \
+                         FROM Albums \
+                         WHERE Albums.NAME = '" + albumName + "';";
 
+	exec_cmd(query, nullptr, nullptr);
 }
+
 
 void DatabaseAccess::removePictureFromAlbumByName(const std::string& albumName, const std::string& pictureName)
 {
 	std::string stringSql =
-		"DELETE FROM Pictures\
-		INNER JOIN ALBUMS ON Pictures.ALBUM_ID = ALBUMS.ID\
-		WHERE albums.name = '" + albumName + "' and pictures.name ='" + pictureName + "';";
+		"DELETE FROM Pictures WHERE ALBUM_ID IN (SELECT ID FROM Albums \
+		WHERE NAME = '" + albumName + "') AND NAME = '" + pictureName + "';";
+
 
 	exec_cmd(stringSql, nullptr, nullptr);
 
@@ -212,7 +216,7 @@ void DatabaseAccess::tagUserInPicture(const std::string& albumName, const std::s
 		"INSERT INTO Tags (USER_ID, PICTURE_ID) "
 		"SELECT " + std::to_string(userId) + ", Pictures.ID FROM Pictures "
 		"INNER JOIN Albums ON Pictures.ALBUM_ID = Albums.ID "
-		"WHERE Albums.NAME = " + albumName + "  AND Pictures.NAME = " + pictureName + "; ";
+		"WHERE Albums.NAME = '" + albumName + "'  AND Pictures.NAME = '" + pictureName + "'; ";
 
 	exec_cmd(stringSql, nullptr, nullptr);
 
@@ -279,10 +283,27 @@ User DatabaseAccess::getUser(int userId)
 void DatabaseAccess::createUser(User& user)
 {
 	std::string stringSql =
-		"INSERT INTO USERS (id,name) values('"+std::to_string(user.getId()) + "," + user.getName() + "')"; // maybe you shoukd enter the id to the user and not the oppostie, bo awarew to that (past Amit)
+		"INSERT INTO USERS (name) values('" + user.getName() + "')"; // maybe you shoukd enter the id to the user and not the oppostie, bo awarew to that (past Amit)
 
 
 	exec_cmd(stringSql, nullptr, nullptr);
+
+	//retreiving the new id;
+	stringSql = "SELECT ID FROM USERS ORDER BY ID DESC LIMIT 1;";
+	int newId=0;
+	exec_cmd(stringSql,
+		&newId,
+		[](void* exists, int argc, char** argv, char** azColName)
+		{
+			int* newID = static_cast<int*>(exists);
+			if (argc > 0 && argv[0]) {
+				*newID = atoi(argv[0]);
+			}
+			return SQLITE_OK;
+		}
+);
+
+	user.setId(newId);
 }
 
 void DatabaseAccess::deleteUser(const User& user)
@@ -320,28 +341,27 @@ bool DatabaseAccess::doesUserExists(int userId)
 int DatabaseAccess::countAlbumsOwnedOfUser(const User& user)
 {
 	int count = 0;
+
 	std::string stringSql =
 		"SELECT COUNT(*) AS ALBUMS_COUNT  FROM Albums WHERE USER_ID = " + std::to_string(user.getId()) + ";";
 
-	const char* sqlStatement = stringSql.c_str();
-	int res = sqlite3_exec(db, sqlStatement, [](void* data, int argc, char** argv, char** azColName)
-
+	exec_cmd(
+		stringSql,
+		&count,
+		[](void* data, int argc, char** argv, char** azColName)
 		{
-			int* count = static_cast<int*>(data);
-			for (int i = 0; i < argc; i++)
+			int* countPtr = static_cast<int*>(data);
+			if (argc > 0 && argv[0]) 
 			{
-				if (azColName[i] == "ALBUMS_COUNT")
-				{
-					*count = atoi(argv[i]);
-				}
+				*countPtr = atoi(argv[0]);
 			}
 			return 0;
-		}, & count, nullptr);
-	if (res != SQLITE_OK) {
-		std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-	}
+		}
+	);
+
 	return count;
 }
+
 
 int DatabaseAccess::countAlbumsTaggedOfUser(const User& user)
 {
@@ -353,19 +373,14 @@ int DatabaseAccess::countAlbumsTaggedOfUser(const User& user)
 		"INNER JOIN Tags ON Pictures.ID = Tags.PICTURE_ID "
 		"WHERE Tags.USER_ID = " + std::to_string(user.getId()) + ";";
 
-
 	exec_cmd(
 		stringSql,
 		&count,
 		[](void* data, int argc, char** argv, char** azColName)
 		{
 			int* count = static_cast<int*>(data);
-			for (int i = 0; i < argc; i++)
-			{
-				if (azColName[i] == "COUNT")
-				{
-					*count = atoi(argv[i]);
-				}
+			if (argc > 0 && argv[0]) {
+				*count = atoi(argv[0]);
 			}
 			return 0;
 		}
@@ -373,103 +388,41 @@ int DatabaseAccess::countAlbumsTaggedOfUser(const User& user)
 
 	return count;
 }
+
 
 int DatabaseAccess::countTagsOfUser(const User& user)
 {
-	int count = 0;
-	std::string stringSql =
-		"SELECT COUNT(*) AS TAGS_COUNT  FROM TAGS WHERE USER_ID = " + std::to_string(user.getId()) + ";";
+    int count = 0; 
 
+    std::string stringSql =
+        "SELECT COUNT(*) AS TAGS_COUNT  FROM TAGS WHERE USER_ID = " + std::to_string(user.getId()) + ";";
 
-	exec_cmd(
-		stringSql,
-		&count,
-		[](void* data, int argc, char** argv, char** azColName)
-		{
-			int* count = static_cast<int*>(data);
-			for (int i = 0; i < argc; i++)
+    exec_cmd(
+        stringSql,
+        &count,
+        [](void* data, int argc, char** argv, char** azColName)
+        {
+            int* countPtr = static_cast<int*>(data);
+            if (argc > 0 && argv[0])
 			{
-				if (azColName[i] == "TAGS_COUNT")
-				{
-					*count = atoi(argv[i]);
-				}
-			}
-			return 0;
-		}
-			);
-	
-	return count;
+                *countPtr = atoi(argv[0]);
+            }
+            return 0;
+        }
+    );
+
+    return count;
 }
+
 
 float DatabaseAccess::averageTagsPerAlbumOfUser(const User& user)
 {
-	int totalTags = 0;
-	int totalAlbums = 0;
-
-	std::string stringSql =
-		"SELECT  COUNT(*) AS Tag_Count\
-		FROM Users\
-		JOIN ALBUMS on Users.ID = Albums.USER_ID\
-		JOIN Pictures ON ALBUMS.ID = Pictures.ALBUM_ID\
-		JOIN Tags ON Pictures.ID = Tags.PICTURE_ID\
-		WHERE USERS.ID = "+ std::to_string(user.getId())+" \
-		GROUP BY Users.ID;";
+	int albumsNum= getAlbums().size();
+	if (albumsNum == 0) return 0;
+	else return (float)countTagsOfUser(user) / albumsNum;
 	
-
-	exec_cmd(
-		stringSql,
-
-		&totalTags,
-		[](void* data, int argc, char** argv, char** azColName)
-		{
-			int* total = static_cast<int*>(data);
-
-			for (int i = 0; i < argc; i++)
-			{
-				if (azColName[i] == "Tag_Count")
-				{
-					*total = atoi(argv[i]);
-				}
-
-			}
-			return 0;
-		}
-
-	);
-
-	std::string stringSql =
-		"SELECT  COUNT(*) AS ALBUMS_COUNT FROM ALBUMS;";
-
-	exec_cmd(
-		stringSql,
-
-		&totalAlbums,
-		[](void* data, int argc, char** argv, char** azColName)
-		{
-			int* total = static_cast<int*>(data);
-
-			for (int i = 0; i < argc; i++)
-			{
-				if (azColName[i] == "ALBUMS_COUNT")
-				{
-					*total = atoi(argv[i]);
-				}
-
-			}
-			return 0;
-		}
-
-	);
-	try
-	{
-		return (float) totalTags / totalAlbums;
-
-	}
-	catch (const std::exception&)
-	{
-		return 0;
-	}
 }
+
 
 
 User DatabaseAccess::getTopTaggedUser()
@@ -575,7 +528,19 @@ int DatabaseAccess::callbackGetTagsList(void* data, int argc, char** argv, char*
 
 std::list<Picture> DatabaseAccess::getTaggedPicturesOfUser(const User& user)
 {
-	return std::list<Picture>();
+	std::string query = "SELECT DISTINCT  PICTURES.* FROM Pictures\
+		INNER JOIN Albums ON Albums.ID = Pictures.ALBUM_ID\
+		INNER JOIN Tags ON Pictures.ID = Tags.PICTURE_ID\
+		WHERE Tags.USER_ID = " +std::to_string(user.getId()) + ";";
+
+	std::list<Picture> pics;
+	exec_cmd
+	(
+		query,
+		&pics,
+		callbackGetPicturesList
+	);
+	return pics;
 }
 
 int DatabaseAccess::callbackGetUsersList(void* data, int argc, char** argv, char** azColName)
