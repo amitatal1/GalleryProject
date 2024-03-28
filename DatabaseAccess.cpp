@@ -15,6 +15,9 @@ bool DatabaseAccess::open()
 		std::cout << "Failed to open DB" << std::endl;
 		return false;
 	}
+
+	exec_cmd("PRAGMA foreign_keys = ON;", nullptr, nullptr);
+
 	if (file_exist != 0)
 	{
 		createTables();
