@@ -3,7 +3,8 @@
 #include "Constants.h"
 #include "MemoryAccess.h"
 #include "Album.h"
-
+#include <queue>
+#include <Windows.h>
 
 class AlbumManager
 {
@@ -58,8 +59,14 @@ private:
 	void refreshOpenAlbum();
     bool isCurrentAlbumSet() const;
 
+	//pictures openning:
+	void openViaPaint(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const;
+	void  openViaImagesViewer(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const;
+	static  void openProcess(std::string cmd, STARTUPINFOA& si, PROCESS_INFORMATION& pi);
+
+
 	static const std::vector<struct CommandGroup> m_prompts;
 	static const std::map<CommandType, handler_func_t> m_commands;
-
-};
+	static std::queue<HANDLE> handles;
+}; 
 

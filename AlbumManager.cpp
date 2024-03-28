@@ -4,6 +4,8 @@
 #include "MyException.h"
 #include "AlbumNotOpenException.h"
 
+std::queue<HANDLE> AlbumManager::handles;
+
 
 AlbumManager::AlbumManager(IDataAccess& dataAccess) :
     m_dataAccess(dataAccess), m_nextPictureId(100), m_nextUserId(200)
@@ -204,6 +206,34 @@ void AlbumManager::showPicture()
 	if ( !fileExistsOnDisk(pic.getPath()) ) {
 		throw MyException("Error: Can't open <" + picName+ "> since it doesnt exist on disk.\n");
 	}
+
+
+	// STARTUPINFO and PROCESS_INFORMATION structures
+	STARTUPINFOA si;
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	ZeroMemory(&pi, sizeof(pi));
+	si.cb = sizeof(si);
+	
+	int choice = 0;
+	do
+	{
+		std::cout << "How do you want to open your file?\n\
+	1. Paint\n\
+	2. ImageViewer\n";
+
+		std::cin >> choice;
+	} while (choice != 1 && choice != 2);
+	switch (choice)
+	{
+	case 1:
+		openViaPaint(pic,si,pi);
+		break;
+	case 2:
+		openViaImagesViewer(pic, si, pi);
+		break;
+	}
+
 
 	// Bad practice!!!
 	// Can lead to privileges escalation
@@ -416,6 +446,59 @@ void AlbumManager::refreshOpenAlbum() {
 bool AlbumManager::isCurrentAlbumSet() const
 {
     return !m_currentAlbumName.empty();
+}
+
+void AlbumManager::openViaPaint(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
+{
+	//Creates CMD
+	LPCSTR path = pic.getPath().c_str();
+
+	std::string cmdline = "start mspaint \"";
+	cmdline += path + '"';
+
+	openProcess(cmdline, si, pi);
+
+}
+
+void AlbumManager::openViaImagesViewer(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
+{
+	//Creates CMD
+	std::string cmdline = "\"";
+	 cmdline += pic.getPath(); // retuen string that contains the file path 
+	 cmdline += '"';
+	openProcess(cmdline, si, pi);
+}
+
+void AlbumManager::openProcess(std::string cmd, STARTUPINFOA& si, PROCESS_INFORMATION& pi) 
+{
+
+	LPSTR lpCmdline = const_cast<LPSTR>(cmd.c_str());
+
+
+
+	// Start the process
+	BOOL success = CreateProcessA(
+		NULL,               // Module name (use command line)
+		lpCmdline,          // Command line
+		NULL,               // Process handle not inheritable
+		NULL,               // Thread handle not inheritable
+		FALSE,              // Set handle inheritance to FALSE
+		0,                  // No creation flags
+		NULL,               // Use parent's environment block
+		NULL,               // Use parent's starting directory
+		&si,                // Pointer to STARTUPINFO structure
+		&pi                 // Pointer to PROCESS_INFORMATION structure
+	);
+
+
+	if (!success)
+	{
+		throw std::runtime_error("Could not show the picture\n" + std::to_string(GetLastError()));
+	}
+	else
+	{
+		handles.push(pi.hProcess);
+	}
 }
 
 const std::vector<struct CommandGroup> AlbumManager::m_prompts  = {
