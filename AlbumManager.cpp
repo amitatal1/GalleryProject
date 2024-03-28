@@ -8,8 +8,10 @@
 AlbumManager::AlbumManager(IDataAccess& dataAccess) :
     m_dataAccess(dataAccess), m_nextPictureId(100), m_nextUserId(200)
 {
+
 	// Left empty
 	m_dataAccess.open();
+
 }
 
 void AlbumManager::executeCommand(CommandType command) {
@@ -290,7 +292,6 @@ void AlbumManager::addUser()
 	std::string name = getInputFromConsole("Enter user name: ");
 
 	User user(++m_nextUserId,name);
-	
 	m_dataAccess.createUser(user);
 	std::cout << "User " << name << " with id @" << user.getId() << " created successfully." << std::endl;
 }
