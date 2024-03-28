@@ -4,7 +4,9 @@
 #include "MyException.h"
 #include "AlbumNotOpenException.h"
 
-std::queue<HANDLE> AlbumManager::handles;
+#define MAX_ERROR_CODE 32
+
+std::queue<HINSTANCE> AlbumManager::handles;
 
 
 AlbumManager::AlbumManager(IDataAccess& dataAccess) :
@@ -238,7 +240,7 @@ void AlbumManager::showPicture()
 	// Bad practice!!!
 	// Can lead to privileges escalation
 	// You will replace it on WinApi Lab(bonus)
-	system(pic.getPath().c_str()); 
+	//system(pic.getPath().c_str()); 
 }
 
 void AlbumManager::tagUserInPicture()
@@ -448,58 +450,38 @@ bool AlbumManager::isCurrentAlbumSet() const
     return !m_currentAlbumName.empty();
 }
 
+// pictures openning 
 void AlbumManager::openViaPaint(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
 {
 	//Creates CMD
-	LPCSTR path = pic.getPath().c_str();
-
-	std::string cmdline = "start mspaint \"";
-	cmdline += path + '"';
-
-	openProcess(cmdline, si, pi);
+	HINSTANCE result = ShellExecuteA(nullptr, "open", "mspaint.exe", pic.getPath().c_str(), nullptr, SW_SHOWNORMAL);
+	if (reinterpret_cast<INT_PTR>(result) > MAX_ERROR_CODE)
+	{
+		std::cout << "ShellExecute succeeded." << std::endl;
+		handles.push(result);
+	}
+	else
+	{
+		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(reinterpret_cast<INT_PTR>(result)));
+	}
 
 }
 
 void AlbumManager::openViaImagesViewer(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
 {
-	//Creates CMD
-	std::string cmdline = "\"";
-	 cmdline += pic.getPath(); // retuen string that contains the file path 
-	 cmdline += '"';
-	openProcess(cmdline, si, pi);
-}
-
-void AlbumManager::openProcess(std::string cmd, STARTUPINFOA& si, PROCESS_INFORMATION& pi) 
-{
-
-	LPSTR lpCmdline = const_cast<LPSTR>(cmd.c_str());
-
-
-
-	// Start the process
-	BOOL success = CreateProcessA(
-		NULL,               // Module name (use command line)
-		lpCmdline,          // Command line
-		NULL,               // Process handle not inheritable
-		NULL,               // Thread handle not inheritable
-		FALSE,              // Set handle inheritance to FALSE
-		0,                  // No creation flags
-		NULL,               // Use parent's environment block
-		NULL,               // Use parent's starting directory
-		&si,                // Pointer to STARTUPINFO structure
-		&pi                 // Pointer to PROCESS_INFORMATION structure
-	);
-
-
-	if (!success)
+	HINSTANCE result = ShellExecuteA(nullptr, "open", pic.getPath().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+	if (reinterpret_cast<INT_PTR>(result) > MAX_ERROR_CODE) 
 	{
-		throw std::runtime_error("Could not show the picture\n" + std::to_string(GetLastError()));
+	
+		std::cout << "ShellExecute succeeded." << std::endl;
+		handles.push(result);
 	}
 	else
 	{
-		handles.push(pi.hProcess);
+		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(reinterpret_cast<INT_PTR>(result)));
 	}
 }
+
 
 const std::vector<struct CommandGroup> AlbumManager::m_prompts  = {
 	{

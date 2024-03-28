@@ -5,17 +5,14 @@
 #include <chrono>
 #include "DatabaseAccess.h"
 
-
-/*
-you need to fix the starter id problem 
-*/
 int getCommandNumberFromUser()
 {
 	std::string message("\nPlease enter any command(use number): ");
 	std::string numericStr("0123456789");
-	
+	std::cin.sync();
 	std::cout << message << std::endl;
 	std::string input;
+	
 	std::getline(std::cin, input);
 	
 	while (std::cin.fail() || std::cin.eof() || input.find_first_not_of(numericStr) != std::string::npos) {
