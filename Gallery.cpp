@@ -4,6 +4,17 @@
 #include "AlbumManager.h"
 #include <chrono>
 #include "DatabaseAccess.h"
+#include <signal.h>
+
+
+void signal_callback_handler(int signum)
+{
+	std::cout << "Caught signal " << signum << std::endl;
+	AlbumManager::terminateProc();
+	// Reinstall the signal handler to ensure continuous detection
+	signal(SIGINT, signal_callback_handler);
+}
+
 
 int getCommandNumberFromUser()
 {
@@ -31,7 +42,11 @@ int getCommandNumberFromUser()
 }
 
 int main(void)
-{
+{	
+
+	// Register signal and signal handler
+	signal(SIGINT, signal_callback_handler);
+
 	// initialization data access
 	DatabaseAccess dataAccess;
 

@@ -3,10 +3,12 @@
 #include "Constants.h"
 #include "MyException.h"
 #include "AlbumNotOpenException.h"
+#include <tlhelp32.h>
+
 
 #define MAX_ERROR_CODE 32
 
-std::queue<HINSTANCE> AlbumManager::handles;
+std::queue<HANDLE> AlbumManager::handles;
 
 
 AlbumManager::AlbumManager(IDataAccess& dataAccess) :
@@ -229,10 +231,10 @@ void AlbumManager::showPicture()
 	switch (choice)
 	{
 	case 1:
-		openViaPaint(pic,si,pi);
+		openViaPaint(pic);
 		break;
 	case 2:
-		openViaImagesViewer(pic, si, pi);
+		openViaImagesViewer(pic);
 		break;
 	}
 
@@ -451,36 +453,74 @@ bool AlbumManager::isCurrentAlbumSet() const
 }
 
 // pictures openning 
-void AlbumManager::openViaPaint(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
+void AlbumManager::openViaPaint(Picture& pic) const
 {
-	//Creates CMD
-	HINSTANCE result = ShellExecuteA(nullptr, "open", "mspaint.exe", pic.getPath().c_str(), nullptr, SW_SHOWNORMAL);
-	if (reinterpret_cast<INT_PTR>(result) > MAX_ERROR_CODE)
+	SHELLEXECUTEINFOA sei;
+	ZeroMemory(&sei, sizeof(sei));
+	sei.cbSize = sizeof(sei);
+
+	//tells  him to open with paint 
+	sei.lpFile = "mspaint.exe";
+	sei.lpParameters = pic.getPath().c_str();
+	sei.lpVerb = "open";
+
+	sei.nShow = SW_SHOWNORMAL;
+
+	if (ShellExecuteExA(&sei))
 	{
 		std::cout << "ShellExecute succeeded." << std::endl;
-		handles.push(result);
+		handles.push(sei.hProcess); // Store the process handle in the PROCESS_INFORMATION structure
 	}
 	else
 	{
-		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(reinterpret_cast<INT_PTR>(result)));
+		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(GetLastError()));
 	}
-
 }
 
-void AlbumManager::openViaImagesViewer(Picture& pic, STARTUPINFOA& si, PROCESS_INFORMATION& pi) const
+void AlbumManager::openViaImagesViewer(Picture& pic) const
 {
-	HINSTANCE result = ShellExecuteA(nullptr, "open", pic.getPath().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-	if (reinterpret_cast<INT_PTR>(result) > MAX_ERROR_CODE) 
+	SHELLEXECUTEINFOA sei;
+	ZeroMemory(&sei, sizeof(sei));
+	sei.cbSize = sizeof(sei);
+	sei.lpFile = pic.getPath().c_str();
+	sei.lpVerb = "open";
+	sei.nShow = SW_SHOWNORMAL;
+
+	if (ShellExecuteExA(&sei))
 	{
-	
 		std::cout << "ShellExecute succeeded." << std::endl;
-		handles.push(result);
+		handles.push(sei.hProcess); // Store the process handle in the PROCESS_INFORMATION structure
 	}
 	else
 	{
-		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(reinterpret_cast<INT_PTR>(result)));
+		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(GetLastError()));
 	}
 }
+
+void AlbumManager::terminateProc()
+{
+	if (handles.empty())
+	{
+		std::cout << "No process to terminate" << std::endl;
+		return;
+	}
+
+	HANDLE handle = handles.front(); // Get the handle of the process to terminate
+	if (!TerminateProcess(handle, 0))
+	{
+		std::cout << "Failed to terminate process" << std::endl;
+	}
+	else
+	{
+		std::cout << "Process terminated successfully" << std::endl;
+		CloseHandle(handle); 
+		handles.pop(); 
+	}
+
+
+}
+
+
 
 
 const std::vector<struct CommandGroup> AlbumManager::m_prompts  = {
