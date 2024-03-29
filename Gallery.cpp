@@ -7,10 +7,18 @@
 #include <signal.h>
 
 
+
+// initialization data access
+DatabaseAccess dataAccess;
+
+// initialize album manager
+AlbumManager albumManager(dataAccess);
+
 void signal_callback_handler(int signum)
 {
-	std::cout << "Caught signal " << signum << std::endl;
-	AlbumManager::terminateProc();
+	std::cout << "CTRL+C Has Been Pressed" << std::endl;
+	albumManager.terminateProc();
+
 	// Reinstall the signal handler to ensure continuous detection
 	signal(SIGINT, signal_callback_handler);
 }
@@ -47,11 +55,7 @@ int main(void)
 	// Register signal and signal handler
 	signal(SIGINT, signal_callback_handler);
 
-	// initialization data access
-	DatabaseAccess dataAccess;
 
-	// initialize album manager
-	AlbumManager albumManager(dataAccess);
 
 
 	std::string albumName;

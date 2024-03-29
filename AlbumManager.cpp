@@ -4,19 +4,19 @@
 #include "MyException.h"
 #include "AlbumNotOpenException.h"
 #include <tlhelp32.h>
-
+#include <shellapi.h>
 
 #define MAX_ERROR_CODE 32
-
-std::queue<HANDLE> AlbumManager::handles;
 
 
 AlbumManager::AlbumManager(IDataAccess& dataAccess) :
     m_dataAccess(dataAccess), m_nextPictureId(100), m_nextUserId(200)
 {
-
 	// Left empty
 	m_dataAccess.open();
+
+	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
 
 }
 
@@ -212,13 +212,7 @@ void AlbumManager::showPicture()
 	}
 
 
-	// STARTUPINFO and PROCESS_INFORMATION structures
-	STARTUPINFOA si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	ZeroMemory(&pi, sizeof(pi));
-	si.cb = sizeof(si);
-	
+
 	int choice = 0;
 	do
 	{
@@ -418,7 +412,7 @@ void AlbumManager::exit()
 
 void AlbumManager::help()
 {
-	system("CLS");
+	//system("CLS");
 	printHelp();
 }
 
@@ -453,7 +447,7 @@ bool AlbumManager::isCurrentAlbumSet() const
 }
 
 // pictures openning 
-void AlbumManager::openViaPaint(Picture& pic) const
+void AlbumManager::openViaPaint(Picture& pic) 
 {
 	SHELLEXECUTEINFOA sei;
 	ZeroMemory(&sei, sizeof(sei));
@@ -477,24 +471,29 @@ void AlbumManager::openViaPaint(Picture& pic) const
 	}
 }
 
-void AlbumManager::openViaImagesViewer(Picture& pic) const
+void AlbumManager::openViaImagesViewer(Picture& pic) 
 {
-	SHELLEXECUTEINFOA sei;
-	ZeroMemory(&sei, sizeof(sei));
-	sei.cbSize = sizeof(sei);
-	sei.lpFile = pic.getPath().c_str();
-	sei.lpVerb = "open";
-	sei.nShow = SW_SHOWNORMAL;
+	SHELLEXECUTEINFOA sei = { sizeof(sei) };
 
-	if (ShellExecuteExA(&sei))
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+	sei.lpVerb = "open";
+	sei.lpFile = pic.getPath().c_str();
+	sei.nShow = SW_SHOW;
+
+	if (ShellExecuteExA(&sei) && sei.hProcess!=NULL)
 	{
 		std::cout << "ShellExecute succeeded." << std::endl;
-		handles.push(sei.hProcess); // Store the process handle in the PROCESS_INFORMATION structure
+		handles.push(sei.hProcess); // Store the process handle in the queue
+
+		//added for debugging
+		Sleep(100);
+		terminateProc();
 	}
 	else
 	{
 		throw std::runtime_error("ShellExecute failed. Error code: " + std::to_string(GetLastError()));
 	}
+	
 }
 
 void AlbumManager::terminateProc()
@@ -504,17 +503,20 @@ void AlbumManager::terminateProc()
 		std::cout << "No process to terminate" << std::endl;
 		return;
 	}
-
-	HANDLE handle = handles.front(); // Get the handle of the process to terminate
-	if (!TerminateProcess(handle, 0))
-	{
-		std::cout << "Failed to terminate process" << std::endl;
-	}
 	else
 	{
-		std::cout << "Process terminated successfully" << std::endl;
-		CloseHandle(handle); 
-		handles.pop(); 
+		HANDLE handle = handles.front(); // Get the handle of the process to terminate
+		if (!TerminateProcess(handle, 0))
+		{
+			std::cout << "Failed to terminate process" << std::endl;
+		}
+		else
+		{
+			std::cout << "Process terminated successfully" << std::endl;
+			CloseHandle(handle);
+			handles.pop();
+		}
+
 	}
 
 

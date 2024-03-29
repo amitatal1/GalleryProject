@@ -15,7 +15,7 @@ public:
 	void printHelp() const;
 
 	using handler_func_t = void (AlbumManager::*)(void);    
-	static void terminateProc();
+	void terminateProc();
 
 private:
     int m_nextPictureId{};
@@ -61,11 +61,11 @@ private:
     bool isCurrentAlbumSet() const;
 
 	//pictures openning:
-	void openViaPaint(Picture& pic) const;
-	void  openViaImagesViewer(Picture& pic) const;
+	void openViaPaint(Picture& pic) ;
+	void  openViaImagesViewer(Picture& pic) ;
 
 	static const std::vector<struct CommandGroup> m_prompts;
 	static const std::map<CommandType, handler_func_t> m_commands;
-	static std::queue<HANDLE> handles;
+	std::queue<HANDLE> handles;
 }; 
 
