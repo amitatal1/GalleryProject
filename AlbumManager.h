@@ -3,7 +3,8 @@
 #include "Constants.h"
 #include "MemoryAccess.h"
 #include "Album.h"
-
+#include <queue>
+#include <Windows.h>
 
 class AlbumManager
 {
@@ -14,6 +15,7 @@ public:
 	void printHelp() const;
 
 	using handler_func_t = void (AlbumManager::*)(void);    
+	void terminateProc();
 
 private:
     int m_nextPictureId{};
@@ -57,9 +59,11 @@ private:
 	bool fileExistsOnDisk(const std::string& filename);
 	void refreshOpenAlbum();
     bool isCurrentAlbumSet() const;
+	bool IsProcessRunning(HANDLE hProcess);
+
 
 	static const std::vector<struct CommandGroup> m_prompts;
 	static const std::map<CommandType, handler_func_t> m_commands;
-
-};
+	std::queue<HANDLE> handles;
+}; 
 

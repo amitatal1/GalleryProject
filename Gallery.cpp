@@ -4,18 +4,34 @@
 #include "AlbumManager.h"
 #include <chrono>
 #include "DatabaseAccess.h"
+#include <signal.h>
 
 
-/*
-you need to fix the starter id problem 
-*/
+
+// initialization data access
+DatabaseAccess dataAccess;
+
+// initialize album manager
+AlbumManager albumManager(dataAccess);
+
+void signal_callback_handler(int signum)
+{
+	std::cout << "CTRL+C Has Been Pressed" << std::endl;
+	albumManager.terminateProc();
+
+	// Reinstall the signal handler to ensure continuous detection
+	signal(SIGINT, signal_callback_handler);
+}
+
+
 int getCommandNumberFromUser()
 {
 	std::string message("\nPlease enter any command(use number): ");
 	std::string numericStr("0123456789");
-	
+	std::cin.sync();
 	std::cout << message << std::endl;
 	std::string input;
+	
 	std::getline(std::cin, input);
 	
 	while (std::cin.fail() || std::cin.eof() || input.find_first_not_of(numericStr) != std::string::npos) {
@@ -34,12 +50,12 @@ int getCommandNumberFromUser()
 }
 
 int main(void)
-{
-	// initialization data access
-	DatabaseAccess dataAccess;
+{	
 
-	// initialize album manager
-	AlbumManager albumManager(dataAccess);
+	// Register signal and signal handler
+	signal(SIGINT, signal_callback_handler);
+
+
 
 
 	std::string albumName;

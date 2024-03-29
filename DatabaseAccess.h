@@ -54,7 +54,7 @@ public:
 private:
 
 	//callback functions:
-	static 	int callbackGetUsersList(void* data, int argc, char** argv, char** azColName);
+	static int callbackGetUsersList(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetUser(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetTagsList(void* data, int argc, char** argv, char** azColName);
 	static int callbackGetAlbums(void* data, int argc, char** argv, char** azColName);
