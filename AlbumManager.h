@@ -59,10 +59,8 @@ private:
 	bool fileExistsOnDisk(const std::string& filename);
 	void refreshOpenAlbum();
     bool isCurrentAlbumSet() const;
+	bool IsProcessRunning(HANDLE hProcess);
 
-	//pictures openning:
-	void openViaPaint(Picture& pic) ;
-	void  openViaImagesViewer(Picture& pic) ;
 
 	static const std::vector<struct CommandGroup> m_prompts;
 	static const std::map<CommandType, handler_func_t> m_commands;
